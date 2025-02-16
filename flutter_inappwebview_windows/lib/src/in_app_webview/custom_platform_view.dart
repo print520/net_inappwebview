@@ -295,12 +295,18 @@ class _CustomPlatformViewState extends State<CustomPlatformView>
 
     _controller.initialize(
         onPlatformViewCreated: (id) {
+          if (!mounted) {
+            return;
+          }
           widget.onPlatformViewCreated?.call(id);
           setState(() {});
         },
         arguments: widget.creationParams);
 
     _listener = AppLifecycleListener(onStateChange: (state) {
+      if (!mounted) {
+        return;
+      }
       if ([AppLifecycleState.resumed, AppLifecycleState.hidden]
           .contains(state)) {
         _reportSurfaceSize();
@@ -467,6 +473,9 @@ class _CustomPlatformViewState extends State<CustomPlatformView>
     final box = _key.currentContext?.findRenderObject() as RenderBox?;
     if (box != null) {
       await _controller.ready;
+      if (!mounted) {
+        return;
+      }
       final position = box.localToGlobal(Offset.zero);
       unawaited(_controller._setPosition(
           position, widget.scaleFactor ?? window.devicePixelRatio));
