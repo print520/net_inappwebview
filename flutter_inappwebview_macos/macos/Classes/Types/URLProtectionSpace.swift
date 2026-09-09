@@ -13,11 +13,17 @@ extension URLProtectionSpace {
         guard let serverTrust = serverTrust else {
             return nil
         }
-        
-        var secResult = SecTrustResultType.invalid
-        let secTrustEvaluateStatus = SecTrustEvaluate(serverTrust, &secResult);
-        
-        if secTrustEvaluateStatus == errSecSuccess, let serverCertificate = SecTrustGetCertificateAtIndex(serverTrust, 0) {
+
+        var error: CFError?
+        _ = SecTrustEvaluateWithError(serverTrust, &error)
+
+        if #available(macOS 12.0, *) {
+            guard let chain = SecTrustCopyCertificateChain(serverTrust) as? [SecCertificate],
+                  let serverCertificate = chain.first else {
+                return nil
+            }
+            return serverCertificate.data
+        } else if let serverCertificate = SecTrustGetCertificateAtIndex(serverTrust, 0) {
             return serverCertificate.data
         }
         return nil
@@ -35,15 +41,19 @@ extension URLProtectionSpace {
         guard let serverTrust = serverTrust else {
             return nil
         }
-        
-        var secResult = SecTrustResultType.invalid
-        SecTrustEvaluate(serverTrust, &secResult);
-        
-        guard let sslErrorType = secResult != SecTrustResultType.proceed ? secResult : nil else {
+
+        var error: CFError?
+        let trusted = SecTrustEvaluateWithError(serverTrust, &error)
+        if trusted {
             return nil
         }
-        
-        return SslError(errorType: sslErrorType)
+
+        var secResult = SecTrustResultType.invalid
+        SecTrustGetTrustResult(serverTrust, &secResult)
+        guard secResult != SecTrustResultType.proceed else {
+            return nil
+        }
+        return SslError(errorType: secResult)
     }
     
     public func toMap () -> [String:Any?] {

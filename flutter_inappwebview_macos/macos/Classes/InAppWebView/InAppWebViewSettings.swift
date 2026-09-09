@@ -105,12 +105,13 @@ public class InAppWebViewSettings: ISettings<InAppWebView> {
             }
             realSettings["allowUniversalAccessFromFileURLs"] = configuration.value(forKey: "allowUniversalAccessFromFileURLs") as? Bool
             realSettings["allowFileAccessFromFileURLs"] = configuration.preferences.value(forKey: "allowFileAccessFromFileURLs") as? Bool
-            realSettings["javaScriptEnabled"] = configuration.preferences.javaScriptEnabled
             if #available(macOS 11.0, *) {
                 realSettings["mediaType"] = webView.mediaType
                 realSettings["pageZoom"] = Float(webView.pageZoom)
                 realSettings["limitsNavigationsToAppBoundDomains"] = configuration.limitsNavigationsToAppBoundDomains
                 realSettings["javaScriptEnabled"] = configuration.defaultWebpagePreferences.allowsContentJavaScript
+            } else {
+                realSettings["javaScriptEnabled"] = configuration.preferences.javaScriptEnabled
             }
             if #available(macOS 11.3, *) {
                 realSettings["isTextInteractionEnabled"] = configuration.preferences.isTextInteractionEnabled

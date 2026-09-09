@@ -159,7 +159,7 @@ public class InAppWebView: WKWebView, WKUIDelegate,
             }
             
             if settings.clearCache {
-                clearCache()
+                clearWebsiteDataStore()
             }
         }
         
@@ -183,9 +183,10 @@ public class InAppWebView: WKWebView, WKUIDelegate,
                 configuration.defaultWebpagePreferences.preferredContentMode = WKWebpagePreferences.ContentMode(rawValue: settings.preferredContentMode)!
             }
             
-            configuration.preferences.javaScriptEnabled = settings.javaScriptEnabled
             if #available(macOS 11.0, *) {
                 configuration.defaultWebpagePreferences.allowsContentJavaScript = settings.javaScriptEnabled
+            } else {
+                configuration.preferences.javaScriptEnabled = settings.javaScriptEnabled
             }
             if #available(macOS 11.3, *) {
                 configuration.preferences.isTextInteractionEnabled = settings.isTextInteractionEnabled
@@ -741,11 +742,7 @@ public class InAppWebView: WKWebView, WKUIDelegate,
         }
         
         if newSettingsMap["clearCache"] != nil && newSettings.clearCache {
-            clearCache()
-        }
-        
-        if newSettingsMap["javaScriptEnabled"] != nil && settings?.javaScriptEnabled != newSettings.javaScriptEnabled {
-            configuration.preferences.javaScriptEnabled = newSettings.javaScriptEnabled
+            clearWebsiteDataStore()
         }
         
         if #available(macOS 11.0, *) {
@@ -764,6 +761,8 @@ public class InAppWebView: WKWebView, WKUIDelegate,
             if newSettingsMap["javaScriptEnabled"] != nil && settings?.javaScriptEnabled != newSettings.javaScriptEnabled {
                 configuration.defaultWebpagePreferences.allowsContentJavaScript = newSettings.javaScriptEnabled
             }
+        } else if newSettingsMap["javaScriptEnabled"] != nil && settings?.javaScriptEnabled != newSettings.javaScriptEnabled {
+            configuration.preferences.javaScriptEnabled = newSettings.javaScriptEnabled
         }
         
         if #available(macOS 10.13, *), newSettingsMap["contentBlockers"] != nil {
@@ -857,8 +856,12 @@ public class InAppWebView: WKWebView, WKUIDelegate,
         }
     }
     
-    @available(*, deprecated, message: "Use InAppWebViewManager.clearAllCache instead.")
+    /// Clears website data. Prefer `InAppWebViewManager.clearAllCache` from Dart when possible.
     public func clearCache() {
+        clearWebsiteDataStore()
+    }
+
+    func clearWebsiteDataStore() {
         let date = NSDate(timeIntervalSince1970: 0)
         WKWebsiteDataStore.default().removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: date as Date, completionHandler:{ })
     }
@@ -2277,7 +2280,12 @@ public class InAppWebView: WKWebView, WKUIDelegate,
                            let numberOfMatches = findResult["numberOfMatches"] as? Int,
                            let isDoneCounting = findResult["isDoneCounting"] as? Bool {
                             webView.findInteractionController?.channelDelegate?.onFindResultReceived(activeMatchOrdinal: activeMatchOrdinal, numberOfMatches: numberOfMatches, isDoneCounting: isDoneCounting)
-                            webView.channelDelegate?.onFindResultReceived(activeMatchOrdinal: activeMatchOrdinal, numberOfMatches: numberOfMatches, isDoneCounting: isDoneCounting)
+                            // Keep legacy webview channel event without calling the deprecated wrapper.
+                            webView.channelDelegate?.channel?.invokeMethod("onFindResultReceived", arguments: [
+                                "activeMatchOrdinal": activeMatchOrdinal,
+                                "numberOfMatches": numberOfMatches,
+                                "isDoneCounting": isDoneCounting
+                            ])
                         }
                     }
                     break
@@ -2616,7 +2624,13 @@ if(window.\(JavaScriptBridgeJS.get_JAVASCRIPT_BRIDGE_NAME())[\(_callHandlerID)] 
     }
     
     public func getSelectedText(completionHandler: @escaping (Any?, Error?) -> Void) {
-        if configuration.preferences.javaScriptEnabled {
+        let javaScriptEnabled: Bool
+        if #available(macOS 11.0, *) {
+            javaScriptEnabled = configuration.defaultWebpagePreferences.allowsContentJavaScript
+        } else {
+            javaScriptEnabled = configuration.preferences.javaScriptEnabled
+        }
+        if javaScriptEnabled {
             evaluateJavaScript(PluginScriptsUtil.GET_SELECTED_TEXT_JS_SOURCE, completionHandler: completionHandler)
         } else {
             completionHandler(nil, nil)
