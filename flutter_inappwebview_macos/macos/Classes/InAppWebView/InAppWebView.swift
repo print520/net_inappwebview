@@ -264,7 +264,6 @@ public class InAppWebView: WKWebView, WKUIDelegate,
         let configuration = WKWebViewConfiguration()
         // initialzie WKUserContentController here to fix possible "undefined is not an object (evaluating 'window.webkit.messageHandlers')" javascript error
         configuration.userContentController = WKUserContentController()
-        configuration.processPool = WKProcessPoolManager.sharedProcessPool
         
         if let settings = settings {
             configuration.suppressesIncrementalRendering = settings.suppressesIncrementalRendering
